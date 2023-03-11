@@ -1,8 +1,15 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Common where
 
+#if HLINT
+#include "cabal_macros.h"
+#endif
+
 import Prelude
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Lens
 import Data.AdditiveGroup
 import Data.Char
@@ -21,7 +28,7 @@ exit b = exitWith $ if b then ExitSuccess else ExitFailure 1
 newtype RecentTime = RecentTime UTCTime deriving (Show)
 
 instance Arbitrary RecentTime where
-    arbitrary = fmap (RecentTime . review utcTime) $ UTCTime
+    arbitrary = fmap (RecentTime . review utcTime) $ UTCView
             <$> choose (minDay, maxDay)
             <*> choose (zeroV, pred dayLength) where
         minDay = gregorian # YearMonthDay 1000 1 1

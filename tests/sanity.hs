@@ -6,15 +6,16 @@
 #endif
 
 import Prelude
+
 import Control.Arrow
 import Control.Lens
 import qualified Data.Attoparsec.ByteString.Char8 as P
 import Data.ByteString (ByteString)
 import Data.Thyme
+import Data.Thyme.Calendar.OrdinalDate
 import Data.Thyme.Time
 import qualified Data.Time as T
 import qualified Data.Time.Calendar.OrdinalDate as T
-import System.Locale
 import Test.QuickCheck
 
 import Common
@@ -68,7 +69,11 @@ prop_parseTime (Spec spec) (RecentTime orig)
 #endif
     s = T.formatTime defaultTimeLocale spec (thyme # orig)
     t = parseTime defaultTimeLocale spec s :: Maybe UTCTime
+#if MIN_VERSION_time(1,5,0)
+    t' = T.parseTimeM True defaultTimeLocale spec s
+#else
     t' = T.parseTime defaultTimeLocale spec s
+#endif
     tp = P.parse (timeParser defaultTimeLocale spec) . utf8String
     desc = "input: " ++ show s ++ "\nthyme: " ++ show t
         ++ "\ntime:  " ++ show t' ++ "\nstate: " ++ show (tp s)

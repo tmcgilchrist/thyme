@@ -1,25 +1,38 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 #if __GLASGOW_HASKELL__ == 706
 {-# OPTIONS_GHC -fsimpl-tick-factor=120 #-} -- 7.6.3 only, it seems; fixes #29
 #endif
+
 #include "thyme.h"
+#if HLINT
+#include "cabal_macros.h"
+#endif
 
 -- | Various Week Date formats
 module Data.Thyme.Calendar.WeekDate
     ( Year, WeekOfYear, DayOfWeek
     -- * ISO 8601 Week Date
-    , WeekDate (..), weekDate, weekDateValid, showWeekDate
+    , WeekDate (..), _wdYear, _wdWeek, _wdDay
+    , weekDate, weekDateValid, showWeekDate
+
     -- * Weeks starting Sunday
-    , SundayWeek (..), sundayWeek, sundayWeekValid
+    , SundayWeek (..), _swYear, _swWeek, _swDay
+    , sundayWeek, sundayWeekValid
+
     -- * Weeks starting Monday
-    , MondayWeek (..), mondayWeek, mondayWeekValid
+    , MondayWeek (..), _mwYear, _mwWeek, _mwDay
+    , mondayWeek, mondayWeekValid
+
     , module Data.Thyme.Calendar.WeekDate
     ) where
 
 import Prelude
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Arrow
 import Control.Lens
 import Data.Thyme.Calendar.OrdinalDate
@@ -75,17 +88,36 @@ instance CoArbitrary MondayWeek where
     coarbitrary (MondayWeek y w d)
         = coarbitrary y . coarbitrary w . coarbitrary d
 
--- * Lenses
+-- * Compatibility
 
-LENS(WeekDate,wdYear,Year)
-LENS(WeekDate,wdWeek,WeekOfYear)
-LENS(WeekDate,wdDay,DayOfWeek)
+-- | Converts a 'Day' to an <https://en.wikipedia.org/wiki/ISO_week_date ISO week date>.
+--
+-- @
+-- 'toWeekDate' ('view' 'weekDate' -> 'WeekDate' y w d) = (y, w, d)
+-- @
+{-# INLINE toWeekDate #-}
+toWeekDate :: Day -> (Year, WeekOfYear, DayOfWeek)
+toWeekDate (view weekDate -> WeekDate y w d) = (y, w, d)
 
-LENS(SundayWeek,swYear,Year)
-LENS(SundayWeek,swWeek,WeekOfYear)
-LENS(SundayWeek,swDay,DayOfWeek)
+-- | Converts an <https://en.wikipedia.org/wiki/ISO_week_date ISO week date>
+-- to a 'Day'.
+-- Does not validate the input.
+--
+-- @
+-- 'fromWeekDate' y w d = 'weekDate' 'Control.Lens.#' 'WeekDate' y w d
+-- @
+{-# INLINE fromWeekDate #-}
+fromWeekDate :: Year -> WeekOfYear -> DayOfWeek -> Day
+fromWeekDate y w d = weekDate # WeekDate y w d
 
-LENS(MondayWeek,mwYear,Year)
-LENS(MondayWeek,mwWeek,WeekOfYear)
-LENS(MondayWeek,mwDay,DayOfWeek)
+-- | Converts an <https://en.wikipedia.org/wiki/ISO_week_date ISO week date>
+-- to a 'Day'.
+-- Returns 'Nothing' for invalid input.
+--
+-- @
+-- 'fromWeekDateValid' y w d = 'weekDateValid' ('WeekDate' y w d)
+-- @
+{-# INLINE fromWeekDateValid #-}
+fromWeekDateValid :: Year -> WeekOfYear -> DayOfWeek -> Maybe Day
+fromWeekDateValid y w d = weekDateValid (WeekDate y w d)
 

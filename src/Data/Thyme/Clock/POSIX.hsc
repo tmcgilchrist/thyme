@@ -4,11 +4,16 @@
 #include <sys/time.h>
 #endif
 
+-- | <https://en.wikipedia.org/wiki/Unix_time POSIX time>
 module Data.Thyme.Clock.POSIX
     ( posixDayLength
     , POSIXTime
     , posixTime
     , getPOSIXTime
+
+    -- * Compatibility
+    , posixSecondsToUTCTime
+    , utcTimeToPOSIXSeconds
     ) where
 
 import Prelude
@@ -27,8 +32,19 @@ import Foreign.Ptr (Ptr, nullPtr)
 import Foreign.Storable
 #endif
 
+-- | The nominal (ignoring leap seconds) time difference since midnight
+-- 1970-01-01, the Unix epoch. Equvialent to a normalised
+-- @<http://www.gnu.org/software/libc/manual/html_node/Elapsed-Time.html struct timeval>@.
 type POSIXTime = NominalDiffTime
 
+-- | "Control.Lens.Iso" between 'UTCTime' and 'POSIXTime'.
+--
+-- @
+-- > 'getPOSIXTime'
+-- 1459515013.527711s
+-- > 'review' 'posixTime' '<$>' 'getPOSIXTime'
+-- 2016-01-01 12:50:45.588729 UTC
+-- @
 {-# INLINE posixTime #-}
 posixTime :: Iso' UTCTime POSIXTime
 posixTime = iso (\ (UTCRep t) -> t ^-^ unixEpoch)
@@ -36,11 +52,16 @@ posixTime = iso (\ (UTCRep t) -> t ^-^ unixEpoch)
     unixEpoch = review microseconds $
         {-ModifiedJulianDay-}40587 * {-posixDayLength-}86400000000
 
+-- | Return the current system POSIX time via
+-- @<http://www.gnu.org/software/libc/manual/html_node/High_002dResolution-Calendar.html gettimeofday>@,
+-- or @getSystemTimeAsFileTime@ on Windows.
+-- 
+-- See also 'Data.Thyme.Clock.getCurrentTime', 'Data.Thyme.LocalTime.getZonedTime'.
 {-# INLINE getPOSIXTime #-}
 getPOSIXTime :: IO POSIXTime
 #ifdef mingw32_HOST_OS
 
--- On Windows, the equlvalent of POSIX time is "file time", defined as
+-- On Windows, the equlvalent of POSIX time is ‘file time’, defined as
 -- the number of 100-nanosecond intervals that have elapsed since
 -- 12:00 AM January 1, 1601 (UTC). We can convert this into a POSIX
 -- time by adjusting the offset to be relative to the POSIX epoch.
@@ -63,4 +84,25 @@ foreign import ccall unsafe "time.h gettimeofday"
     gettimeofday :: Ptr () -> Ptr () -> IO CInt
 
 #endif
+
+------------------------------------------------------------------------
+
+-- | Construct a 'UTCTime' from a 'POSIXTime'.
+--
+-- @
+-- 'posixSecondsToUTCTime' = 'review' 'posixTime'
+-- 'posixSecondsToUTCTime' t ≡ 'posixTime' 'Control.Lens.#' t
+-- @
+{-# INLINE posixSecondsToUTCTime #-}
+posixSecondsToUTCTime :: POSIXTime -> UTCTime
+posixSecondsToUTCTime = review posixTime
+
+-- | Convert a 'UTCTime' to a 'POSIXTime'.
+--
+-- @
+-- 'utcTimeToPOSIXSeconds' = 'view' 'posixTime'
+-- @
+{-# INLINE utcTimeToPOSIXSeconds #-}
+utcTimeToPOSIXSeconds :: UTCTime -> POSIXTime
+utcTimeToPOSIXSeconds = view posixTime
 

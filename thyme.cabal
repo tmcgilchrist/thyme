@@ -1,11 +1,12 @@
 name:           thyme
-version:        0.3.5.4
+version:        0.3.5.5
 synopsis:       A faster time library
 description:
-    Thyme is a rewrite of the fine @time@ library, with a particular focus
-    on performance for applications that make heavy use of timestamps.
+    @thyme@ is a performance-optimized rewrite of the excellent
+    @<http://hackage.haskell.org/package/time time>@ library.
     .
-    See <http://hackage.haskell.org/package/thyme/docs/Data-Thyme.html Data.Thyme> for a full description.
+    See @<http://hackage.haskell.org/package/thyme/docs/Data-Thyme-Docs.html Data.Thyme.Docs>@
+    for a full description.
 homepage:       https://github.com/liyang/thyme
 license:        BSD3
 license-file:   LICENSE
@@ -18,6 +19,10 @@ cabal-version:  >= 1.10
 stability:      experimental
 extra-source-files:
     include/thyme.h
+tested-with:
+    GHC == 7.6.3, GHC == 7.8.4,
+    GHC == 7.10.2, GHC == 7.10.3,
+    GHC >= 8.0 && < 8.2
 
 source-repository head
     type:       git
@@ -26,6 +31,11 @@ source-repository head
 flag bug-for-bug
     description: bug-for-bug compatibility with time
     default: True
+    manual: True
+
+flag docs
+    description: include extra packages for Data.Thyme.Docs; implies -flens
+    default: False
     manual: True
 
 flag HLint
@@ -43,19 +53,15 @@ flag show-internal
     default: False
     manual: True
 
-flag Werror
-    description: -Werror
-    default: False
-    manual: True
-
 library
     default-language: Haskell2010
     include-dirs: include
     hs-source-dirs: src
-    if !flag(lens)
+    if !(flag(lens) || flag(docs))
         hs-source-dirs: lens
     exposed-modules:
         Data.Thyme
+        Data.Thyme.Docs
         Data.Thyme.Calendar
         Data.Thyme.Calendar.MonthDay
         Data.Thyme.Calendar.OrdinalDate
@@ -75,7 +81,8 @@ library
         Data.Thyme.Calendar.Internal
         Data.Thyme.Clock.Internal
         Data.Thyme.Format.Internal
-    if !flag(lens)
+        Data.Thyme.TrueName
+    if !(flag(lens) || flag(docs))
         other-modules: Control.Lens
     build-depends:
         QuickCheck >= 2.4,
@@ -83,32 +90,35 @@ library
         aeson >= 0.6,
         base >= 4.5 && < 5,
         bytestring >= 0.9,
-        containers,
+        containers >= 0.5,
         deepseq >= 1.2,
+        hashable >= 1.2,
         mtl >= 1.1,
         old-locale >= 1.0,
         random,
         text >= 0.11,
+        template-haskell >= 2.7 && < 2.20,
         time >= 1.4,
         vector >= 0.9,
         vector-th-unbox >= 0.2.1.0,
         vector-space >= 0.8
+
     if os(windows)
         build-depends: Win32
-    if os(darwin)
+    if os(darwin) || os(freebsd)
         build-tools: cpphs
-        ghc-options: -pgmP cpphs -optP--cpp
-    if flag(lens)
+        ghc-options: "-pgmP cpphs --cpp"
+    if flag(lens) || flag(docs)
         build-depends: lens >= 3.9
     else
         build-depends: profunctors >= 3.1.2
+    if flag(docs)
+        build-depends: integer-gmp, ghc-prim
     ghc-options: -Wall
     if flag(bug-for-bug)
         cpp-options: -DBUG_FOR_BUG=1
     if flag(show-internal)
         cpp-options: -DSHOW_INTERNAL=1
-    if flag(Werror)
-        ghc-options: -Werror
 
 test-suite sanity
     default-language: Haskell2010
@@ -142,23 +152,18 @@ test-suite rewrite
     hs-source-dirs: tests
     main-is: rewrite.hs
     build-depends:
-        Cabal,
         base,
         containers,
-        directory,
-        filepath,
         random,
-        system-posix-redirect >= 1.1,
-        text,
         thyme
     ghc-options: -Wall
 
 test-suite hlint
     default-language: Haskell2010
     type: exitcode-stdio-1.0
+    hs-source-dirs: tests
     main-is: hlint.hs
     ghc-options: -threaded -rtsopts -with-rtsopts=-N
-    hs-source-dirs: tests
     if flag(HLint)
         build-depends: base, hlint >= 1.9
     else

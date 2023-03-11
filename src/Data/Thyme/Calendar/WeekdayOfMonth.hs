@@ -8,14 +8,20 @@
 {-# LANGUAGE ViewPatterns #-}
 
 #include "thyme.h"
+#if HLINT
+#include "cabal_macros.h"
+#endif
 
+-- | Calendar date reckoned by year, month-of-year, and n-th day-of-week.
 module Data.Thyme.Calendar.WeekdayOfMonth
     ( Year, Month, DayOfWeek
     , module Data.Thyme.Calendar.WeekdayOfMonth
     ) where
 
 import Prelude
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Arrow
 import Control.DeepSeq
 import Control.Lens
@@ -23,6 +29,7 @@ import Control.Monad
 import Data.AffineSpace
 import Data.Bits
 import Data.Data
+import Data.Hashable
 import Data.Thyme.Calendar
 import Data.Thyme.Calendar.Internal
 #if __GLASGOW_HASKELL__ == 704
@@ -34,12 +41,23 @@ import GHC.Generics (Generic)
 import System.Random
 import Test.QuickCheck hiding ((.&.))
 
+-- | Calendar date with year, month-of-year, and n-th day-of-week.
 data WeekdayOfMonth = WeekdayOfMonth
     { womYear :: {-# UNPACK #-}!Year
+        -- ^ Calendar year.
     , womMonth :: {-# UNPACK #-}!Month
-    , womNth :: {-# UNPACK #-}!Int -- ^ ±1–5, negative means n-th last
+        -- ^ Month of year.
+    , womNth :: {-# UNPACK #-}!Int
+        -- ^ /N/-th 'DayOfWeek'. Range /±1–5/; negative means the /N/-th
+        -- last 'DayOfWeek' of the month.
     , womDayOfWeek :: {-# UNPACK #-}!DayOfWeek
+        -- ^ Day of week. /1 = Monday, 7 = Sunday/, like ISO 8601 'WeekDate'.
     } deriving (INSTANCES_USUAL, Show)
+
+LENS(WeekdayOfMonth,womYear,Year)
+LENS(WeekdayOfMonth,womMonth,Month)
+LENS(WeekdayOfMonth,womNth,Int)
+LENS(WeekdayOfMonth,womDayOfWeek,DayOfWeek)
 
 derivingUnbox "WeekdayOfMonth"
     [t| WeekdayOfMonth -> Int |]
@@ -48,6 +66,7 @@ derivingUnbox "WeekdayOfMonth"
     [| \ n -> WeekdayOfMonth (shiftR n 11) (shiftR n 7 .&. 0xf)
         (shiftR n 3 - 5) (n .&. 0x7) |]
 
+instance Hashable WeekdayOfMonth
 instance NFData WeekdayOfMonth
 
 instance Bounded WeekdayOfMonth where
@@ -67,6 +86,20 @@ instance CoArbitrary WeekdayOfMonth where
         = coarbitrary y . coarbitrary m
         . coarbitrary n . coarbitrary d
 
+-- | Conversion between a 'Day' and and 'WeekdayOfMonth'.
+--
+-- This is a proper 'Iso' if and only if all of the 'WeekdayOfMonth' fields
+-- are valid and positive.
+--
+-- For example, the last /Monday/ in /January 2016/ is also the fourth
+-- /Monday/:
+--
+-- @
+-- > 'weekdayOfMonth' 'Control.Lens.#' 'WeekdayOfMonth' 2016 1 (-1) 1
+-- 2016-01-25
+-- > 'YearMonthDay' 2016 01 25 '^.' 'from' 'gregorian' '.' 'weekdayOfMonth'
+-- 'WeekdayOfMonth' {'womYear' = 2016, 'womMonth' = 1, 'womNth' = 4, 'womDayOfWeek' = 1}
+-- @
 {-# INLINE weekdayOfMonth #-}
 weekdayOfMonth :: Iso' Day WeekdayOfMonth
 weekdayOfMonth = iso toWeekday fromWeekday where
@@ -89,6 +122,18 @@ weekdayOfMonth = iso toWeekday fromWeekday where
         wo = s * (wd - wd1)
         offset = (abs n - 1) * 7 + if wo < 0 then wo + 7 else wo
 
+-- | Convert a 'WeekdayOfMonth' to a 'Day'.
+-- Returns 'Nothing' for invalid input.
+--
+-- For example, the third /Sunday/ of /January 2016/ is /2016-01-27/, but
+-- there is no fifth /Monday/ in /January 2016/.
+--
+-- @
+-- > 'weekdayOfMonthValid' ('WeekdayOfMonth' 2016 1 3 7)
+-- 'Just' 2016-01-17
+-- > 'weekdayOfMonthValid' ('WeekdayOfMonth' 2016 1 5 1)
+-- 'Nothing'
+-- @
 {-# INLINEABLE weekdayOfMonthValid #-}
 weekdayOfMonthValid :: WeekdayOfMonth -> Maybe Day
 weekdayOfMonthValid (WeekdayOfMonth y m n wd) = (refDay .+^ s * offset)
@@ -100,10 +145,4 @@ weekdayOfMonthValid (WeekdayOfMonth y m n wd) = (refDay .+^ s * offset)
     s = signum n
     wo = s * (wd - wd1)
     offset = (abs n - 1) * 7 + if wo < 0 then wo + 7 else wo
-
--- * Lenses
-LENS(WeekdayOfMonth,womYear,Year)
-LENS(WeekdayOfMonth,womMonth,Month)
-LENS(WeekdayOfMonth,womNth,Int)
-LENS(WeekdayOfMonth,womDayOfWeek,DayOfWeek)
 

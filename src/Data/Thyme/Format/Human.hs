@@ -2,8 +2,13 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
-#include "thyme.h"
 
+#include "thyme.h"
+#if HLINT
+#include "cabal_macros.h"
+#endif
+
+-- | Vague textual descriptions of time durations.
 module Data.Thyme.Format.Human
     ( humanTimeDiff
     , humanTimeDiffs
@@ -12,7 +17,9 @@ module Data.Thyme.Format.Human
     ) where
 
 import Prelude
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Arrow
 import Control.Lens
 import Control.Monad

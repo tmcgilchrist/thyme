@@ -17,6 +17,7 @@ import Control.DeepSeq
 import Data.AdditiveGroup
 import Data.Basis
 import Data.Data
+import Data.Hashable
 import Data.Int
 import Data.Ix
 import Data.Ratio
@@ -85,8 +86,8 @@ instance AdditiveGroup Micro where
 
 instance VectorSpace Micro where
     type Scalar Micro = Rational
-    {-# INLINEABLE (*^) #-}
-    s *^ Micro a = Micro . fromInteger $
+    {-# INLINE (*^) #-}
+    s *^ Micro a = Micro . fromInteger $ -- 'round'-to-even
         case compare (2 * abs r) (denominator s) of
             LT -> n
             EQ -> if even n then n else m
